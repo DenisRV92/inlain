@@ -8,9 +8,11 @@ use PDOException;
 
 class Db
 {
+    private static $instance = null;
+
     private $dsn = 'mysql:host=localhost;';
     private $username = 'root';
-    private $password = '';
+    private $password = 'root';
     private $conn;
 
     /**
@@ -21,8 +23,10 @@ class Db
 
         try {
             $this->conn = new PDO($this->dsn, $this->username, $this->password);
-            $sql = "CREATE DATABASE inlain CHARACTER SET utf8 COLLATE utf8_general_ci;";
-            $this->conn->exec($sql);
+            $sql = include 'sql.php';
+            foreach ($sql as $sql) {
+                $this->conn->exec($sql);
+            }
             $this->conn->query("use inlain");
 
         } catch (PDOException $e) {
@@ -32,92 +36,40 @@ class Db
     }
 
     /**
-     * Создаем таблицы
-     */
-    public function createTables()
-    {
-        $sql = include 'sql.php';
-        $this->conn->exec($sql);
-    }
-
-    /**
-     * Получаем посты
+     * Создаем базу данных и подключаемся к ней
+     * @param $table
      * @return int
      */
-    public function getPosts()
+    public function сount($table)
     {
-        $posts = file_get_contents('https://jsonplaceholder.typicode.com/posts');
-        $posts = json_decode($posts, true);
-        $sql = '';
-        foreach ($posts as $post) {
-            $sql .= "($post[id],'$post[title]','$post[body]',$post[userId]),";
-        }
-        $result = $this->setPosts(rtrim($sql, ","));
+        $result = $this->conn->query("SELECT COUNT(*) as count FROM {$table}");
         if ($result) {
-            return count($posts);
+            $row = $result->fetch(PDO::FETCH_ASSOC);
+            return (int)$row["count"];
         }
+        return 0;
     }
 
-
     /**
-     * Получаем комментарии
-     * @return int
+     * Получает единственный экземпляр класса (Singleton) и устанавливает подключение к базе данных
+     * @return self объект-экземпляр данного класса
      */
-    public function getComments()
+    public static function getInstance()
     {
-        $comments = file_get_contents('https://jsonplaceholder.typicode.com/comments');
-        $comments = json_decode($comments, true);
-        $sql = '';
-
-        foreach ($comments as $comment) {
-            $sql .= "($comment[postId],$comment[id],'$comment[name]','$comment[email]','$comment[body]'),";
-
+        if (self::$instance === null) {
+            self::$instance = new self();
+            self::$instance->connect();
         }
-        $result = $this->setComments(rtrim($sql, ","));
-        if ($result) {
-            return count($comments);
-        }
+
+        return self::$instance;
     }
 
     /**
-     * Записываем посты в таблицу
-     * @param $data
-     * @return mixed
+     * Возвращает текущее подключение к БД
+     * @return PDO
      */
-    public function setPosts($data)
+    public function getConnection()
     {
-        $sql = "INSERT INTO `posts`(id,title,body,userId) 
-                VALUES $data";
-        $result = $this->conn->prepare($sql)->execute();
-        return $result;
-    }
-
-    /**
-     * Записываем комментарии в таблицу
-     * @param $data
-     * @return mixed
-     */
-    public function setComments($data)
-    {
-        $sql = "INSERT INTO `comments`(postId,id,name,email,body) 
-                VALUES $data";
-        $result = $this->conn->prepare($sql)->execute();
-        return $result;
-    }
-
-    /**
-     * Ищем текст
-     * @param $str
-     * @return mixed
-     */
-    public function searchText($str)
-    {
-        $sql = "SELECT posts.title,comments.body FROM posts
-                INNER JOIN `comments` ON posts.id = comments.postID
-                WHERE comments.body LIKE '%$str%'";
-        $result = $this->conn->prepare($sql);
-        $result->execute();
-        $result = $result->fetchAll();
-        return $result;
+        return $this->conn;
     }
 }

@@ -3,25 +3,31 @@
 require_once __DIR__ . '/vendor/autoload.php';
 
 use Db\Db;
+use Src\Posts;
+use Src\Comments;
 
-$db = new db();
+$db = new Db();
 $db->connect();
-$db->createTables();
-$post = $db->getPosts();
-$comments = $db->getComments();
-if ($post && $comments) {
-    echo "<script>console.log('Загружено $post записей и $comments комментариев')</script>";
+
+
+$post = new Posts();
+$posts = $post->getPosts();
+$comment = new Comments();
+$comments = $comment->getComments();
+
+if ($posts && $comments) {
+    echo "<script>console.log('Загружено $posts записей и $comments комментариев')</script>";
 }
 require 'view/search.php';
 if (isset($_GET)) {
     if (strlen($_GET['q']) >= 3) {
-        $results = $db->searchText($_GET['q']);
+        $results = $comment->searchText($_GET['q']);
         if (!empty($results)) {
             require 'view/table.php';
         } else {
-            echo "Ничего не нашлось";
+            echo "<div style='text-align: center;'>Ничего не нашлось</div>";
         }
     } else {
-        echo 'Текс должен быть не менее 3 символов';
+        echo "<div style='text-align: center;color: red'>Текс должен быть не менее 3 символов</div>";
     }
 }
